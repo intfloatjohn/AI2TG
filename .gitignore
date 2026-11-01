@@ -1,0 +1,36 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# Secrets and local configurations
+config.json
+config.json.bak*
+*.log
+agent.log
+
+# Dynamic runtime memory and history (do not commit user chat records)
+history.json
+chat_history.jsonl
+memory_summary.txt
+memory_backups/
+usage_stats/
+*.mp3
+*.ogg
+downloads/
+# Per-chat session data (group histories, memories, member counters, update offset) and safety backups
+sessions/
+*.corrupt-*
+*.tmp-*
+picture_db/images/*
+!picture_db/images/.gitkeep
+
+# Operating System files
+.DS_Store
+Thumbs.db
+.Trash-*

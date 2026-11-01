@@ -1,0 +1,16 @@
+[Unit]
+Description=Telegram AI Companion Daemon
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/AI2TG
+ExecStart=/opt/AI2TG/venv/bin/python3 /opt/AI2TG/autonomous_agent.py
+Restart=always
+RestartSec=5
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target
