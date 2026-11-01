@@ -20,7 +20,7 @@ Most chatbots answer every message and forget everything. AI2TG is built to feel
 | | |
 |---|---|
 | 🔐 **It knows who you are, by user ID** | Your identity is checked against your numeric Telegram user ID in code. Display names, usernames, fake `【Master✔】` labels or "I'm your master" from someone else change nothing. |
-| 🧠 **Memory that never quietly disappears** | New facts are only *added*, with dates. Tidying happens only when memory gets large, with automatic backups in `memory_backups/`. Corrections (Wed → Thu, likes → doesn't like) are kept, not dropped. |
+| 🧠 **Memory that never quietly disappears** | New facts are only *added*, with dates. Tidying happens only when memory gets large, with automatic backups in `backups/`. Corrections (Wed → Thu, likes → doesn't like) are kept, not dropped. |
 | 🗂️ **Your private memory stays private** | What you tell it in private chat is never loaded into groups or other people's chats. Those share one public memory (or one each, if you prefer), so it still recognises people across a group and their private chat. |
 | 👥 **Group chat that doesn't spam** | Speaks only when its name is mentioned, it's @mentioned, or someone replies to it. Per-member message limits. It can skim the group now and then and **tell you privately** if something interesting happens. |
 | 💬 **Chats with your friends, safely** | Other people can talk to it too (whitelist / blacklist), each with a message limit, under the same rules as a group. |

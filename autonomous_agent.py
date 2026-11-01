@@ -64,6 +64,9 @@ PICTURE_IMAGES_DIR = os.path.join(PICTURE_DB_DIR, "images")
 PICTURE_CATALOG_FILE = os.path.join(PICTURE_DB_DIR, "catalog.json")
 SESSIONS_DIR = os.path.join(BASE_DIR, "sessions")
 DOWNLOADS_DIR = os.path.join(BASE_DIR, "downloads")
+# Every backup the bot makes goes here, one sub-folder per chat: backups/master/, backups/public/,
+# backups/group_<chat id>/, backups/private_<user id>/, backups/picture_db/
+BACKUP_DIR = os.path.join(BASE_DIR, "backups")
 
 config = {
     # --- Telegram ---
@@ -157,10 +160,26 @@ def load_config():
             with open(CONFIG_FILE, "r", encoding="utf-8-sig") as f:
                 loaded = json.load(f)
                 config.update(loaded)
+            # A config.json copied from AI2QQ: keep its privacy choice under the new name
+            if "hide_master_qq" in loaded and "hide_master_id" not in loaded:
+                config["hide_master_id"] = bool(loaded["hide_master_qq"])
         except Exception as e:
             print(f"[WARN] Failed to load config.json: {e}")
 
 load_config()
+
+# Settings that only exist in AI2QQ (QQ / NapCat / Qzone); they do nothing here
+AI2QQ_ONLY_KEYS = {"master_qq", "bot_qq", "onebot_http_api", "onebot_access_token", "hide_master_qq", "language",
+                   "poll_interval_sec", "group_poll_interval_sec", "friend_poll_interval_sec", "friend_poll_batch",
+                   "enable_google_asr", "prefer_native_file_parser", "prefer_native_voice_recognition", "enable_qzone"}
+
+def warn_ai2qq_config_keys():
+    found = sorted(k for k in config if k in AI2QQ_ONLY_KEYS or k.startswith("qzone_"))
+    if not found:
+        return
+    logging.warning(f"[!] config.json still has AI2QQ settings that do nothing here: {', '.join(found)}. You can delete them.")
+    if "master_qq" in found and to_int(config.get("master_id"), 0) <= 0:
+        logging.warning("[!] master_qq is a QQ number; Telegram needs master_id (your numeric Telegram user ID).")
 
 def setup_logging():
     level_name = config.get("log_level", "INFO").upper()
@@ -223,6 +242,57 @@ def _atomic_write_text(path: str, text: str):
 def _atomic_write_json(path: str, obj):
     _atomic_write_text(path, json.dumps(obj, ensure_ascii=False, indent=2))
 
+def save_corrupt_copy(path: str, subdir: str) -> str:
+    """Copies a file that could not be read into backups/<subdir>/ before anything can overwrite it."""
+    dest_dir = os.path.join(BACKUP_DIR, subdir)
+    os.makedirs(dest_dir, exist_ok=True)
+    dest = os.path.join(dest_dir, f"{os.path.basename(path)}.corrupt-{int(time.time())}")
+    shutil.copyfile(path, dest)
+    return dest
+
+def migrate_old_backups():
+    """Older layouts (and AI2QQ) kept backups next to each memory file: memory_backups/ folders and
+    *.corrupt-* copies. Moves them all into backups/<chat>/, so every backup is in one place."""
+    moves = []
+
+    def collect(folder: str, subdir: str):
+        old = os.path.join(folder, "memory_backups")
+        if os.path.isdir(old):
+            moves.extend((os.path.join(old, f), subdir) for f in sorted(os.listdir(old)))
+        if os.path.isdir(folder):
+            moves.extend((os.path.join(folder, f), subdir) for f in sorted(os.listdir(folder))
+                         if ".corrupt-" in f and os.path.isfile(os.path.join(folder, f)))
+
+    collect(BASE_DIR, "master")
+    collect(PICTURE_DB_DIR, "picture_db")
+    session_dirs = []
+    if os.path.isdir(SESSIONS_DIR):
+        session_dirs = [d for d in sorted(os.listdir(SESSIONS_DIR)) if os.path.isdir(os.path.join(SESSIONS_DIR, d))]
+    for d in session_dirs:
+        collect(os.path.join(SESSIONS_DIR, d), d)
+    moved = 0
+    for src, subdir in moves:
+        try:
+            dest_dir = os.path.join(BACKUP_DIR, subdir)
+            os.makedirs(dest_dir, exist_ok=True)
+            dest = os.path.join(dest_dir, os.path.basename(src))
+            if os.path.exists(dest):
+                stem, ext = os.path.splitext(dest)
+                dest = f"{stem}-{uuid.uuid4().hex[:6]}{ext}"
+            shutil.move(src, dest)
+            moved += 1
+        except Exception as e:
+            logging.warning(f"Could not move the old backup {src}: {e}")
+    for folder in [BASE_DIR] + [os.path.join(SESSIONS_DIR, d) for d in session_dirs]:
+        old = os.path.join(folder, "memory_backups")
+        try:
+            if os.path.isdir(old) and not os.listdir(old):
+                os.rmdir(old)
+        except OSError:
+            pass
+    if moved:
+        logging.info(f"Moved {moved} old backup file(s) into {BACKUP_DIR}{os.sep} (one folder per chat).")
+
 class BoundedIdSet:
     """Thread-safe set of message IDs that forgets the oldest entries past maxlen."""
     def __init__(self, maxlen: int = 5000):
@@ -280,6 +350,9 @@ class ChatSession:
         self.is_public_memory = (kind == "public")
         self.is_untrusted = self.is_group or self.is_friend or self.is_public_memory
         self.friend_name = ""
+        # This chat's folder inside backups/
+        self.backup_name = "master" if self.is_master_private else ("public" if self.is_public_memory else self.key)
+        self.backup_dir = os.path.join(BACKUP_DIR, self.backup_name)
 
         if self.is_master_private:
             self.dir = BASE_DIR
@@ -349,10 +422,9 @@ class ChatSession:
             os.makedirs(self.dir, exist_ok=True)
 
     def _backup_unreadable(self, path: str, err: Exception):
-        """Keeps a copy of an unreadable memory file before anything can overwrite it."""
-        backup = f"{path}.corrupt-{int(time.time())}"
+        """Keeps a copy of an unreadable memory file (in backups/<chat>/) before anything can overwrite it."""
         try:
-            shutil.copyfile(path, backup)
+            backup = save_corrupt_copy(path, self.backup_name)
             logging.warning(f"[{self.key}] {os.path.basename(path)} could not be read ({err}); a copy was saved as {backup}")
         except Exception as be:
             logging.warning(f"[{self.key}] {os.path.basename(path)} could not be read ({err}) and backup failed: {be}")
@@ -1259,11 +1331,11 @@ def web_search(query: str, max_results: int = 3, gen_id: int = 0, session: "Chat
 MEMORY_BACKUP_KEEP = 30
 
 def backup_memory(session: ChatSession, reason: str):
-    """Copies the memory file into memory_backups/ before anything rewrites it (keeps the last 30)."""
+    """Copies the memory file into backups/<chat>/ before anything rewrites it (keeps the last 30)."""
     try:
         if not os.path.exists(session.memory_file) or os.path.getsize(session.memory_file) == 0:
             return
-        bdir = os.path.join(os.path.dirname(session.memory_file), "memory_backups")
+        bdir = session.backup_dir
         os.makedirs(bdir, exist_ok=True)
         stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
         shutil.copy2(session.memory_file, os.path.join(bdir, f"memory_summary-{stamp}-{reason}.txt"))
@@ -1415,7 +1487,7 @@ def consolidate_memory(session: ChatSession):
         late = session.long_term_memory[len(before):] if session.long_term_memory.startswith(before) else ""
         session.long_term_memory = (new + late).strip()
         session.save_memory()
-    logging.info(f"[{session.key}] Memory consolidated: {len(before)} -> {len(session.long_term_memory)} chars (backup in memory_backups/).")
+    logging.info(f"[{session.key}] Memory consolidated: {len(before)} -> {len(session.long_term_memory)} chars (backup in {session.backup_dir}).")
 
 def get_llm_url() -> str:
     """Returns the LLM API endpoint without unexpected auto-completion.
@@ -2141,11 +2213,10 @@ def _load_catalog() -> list:
             data = json.load(f)
         return data if isinstance(data, list) else []
     except json.JSONDecodeError as e:
-        backup = f"{PICTURE_CATALOG_FILE}.corrupt-{int(time.time())}"
         try:
-            shutil.copyfile(PICTURE_CATALOG_FILE, backup)
-        except Exception:
-            pass
+            backup = save_corrupt_copy(PICTURE_CATALOG_FILE, "picture_db")
+        except Exception as be:
+            backup = f"nowhere ({be})"
         logging.warning(f"Picture catalog unreadable ({e}); backed up to {backup}")
         return []
     except Exception as e:
@@ -3719,13 +3790,14 @@ def get_group_whitelist() -> list:
     return out
 
 def list_known_group_ids() -> list:
-    """Whitelisted groups plus groups that already have their own session folder."""
+    """Whitelisted groups plus groups that already have their own session folder. Telegram group
+    chat IDs are always negative; positive group_<n> folders are QQ groups copied from AI2QQ."""
     ids = list(get_group_whitelist())
     if os.path.isdir(SESSIONS_DIR):
         for d in sorted(os.listdir(SESSIONS_DIR)):
             if d.startswith("group_"):
                 gid = to_int(d[6:], 0)
-                if gid != 0 and gid not in ids:
+                if gid < 0 and gid not in ids:
                     ids.append(gid)
     return ids
 
@@ -5723,6 +5795,8 @@ def group_maintenance_loop(stop_event: threading.Event):
 def main():
     load_config()
     setup_logging()
+    migrate_old_backups()
+    warn_ai2qq_config_keys()
     if not REQUESTS_AVAILABLE:
         logging.error("The 'requests' package is missing. Run: pip install -r requirements.txt")
         sys.exit(1)
@@ -5777,6 +5851,9 @@ def main():
         limit, window = _quota_params()
         limit_desc = "unlimited" if limit <= 0 else (f"{limit} per member (never resets)" if window <= 0 else f"{limit} per member per {window / 3600:g}h")
         logging.info(f"[*] Group Chat      : Enabled for {len(gids)} group(s) {gids}")
+        if any(g > 0 for g in gids):
+            logging.warning("[!] group_whitelist has positive numbers. Telegram group chat IDs are negative (e.g. -1001234567890); "
+                            "positive ones (QQ group numbers?) never match. The log shows each group's chat ID when someone writes there.")
         logging.info(f"[*] Group Triggers  : {', '.join(triggers)}")
         logging.info(f"[*] Member Limit    : {limit_desc}; Master exempt")
         logging.info(f"[*] Group Storage   : {SESSIONS_DIR}{os.sep}group_<id>{os.sep} (isolated from private memory)")

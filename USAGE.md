@@ -68,14 +68,27 @@ Files named `system_prompt_en.md` / `system_prompt_group_en.md` (from older setu
 2. **Realtime memory updates**: when the companion learns something worth keeping, or you say "remember that…", the model writes `[remember: …]`. The fact is appended right away, with a date, to `memory_summary.txt`.
 3. **Reading memory**: the model can open the whole archive with `[read_memory]`.
 4. **AutoCompact**: when the conversation reaches `compact_threshold` turns (default 30), a background call extracts only **new** facts from the older turns and appends them, keeping the latest `compact_keep_recent` (12) turns as context. Existing memory is never rewritten here; if the call fails, the old turns are kept for next time. Answers cut off by "thinking" models are retried with a bigger budget.
-5. **Tidying and backups**: when memory grows past `memory_max_chars` (8000; `group_memory_max_chars` 3000 for each group/person; `public_memory_max_chars` 8000 for the shared memory), the model merges duplicate and outdated entries. The old file is copied to `memory_backups/` first (last 30 kept), and a result that looks cut off or lost too much is rejected.
+5. **Tidying and backups**: when memory grows past `memory_max_chars` (8000; `group_memory_max_chars` 3000 for each group/person; `public_memory_max_chars` 8000 for the shared memory), the model merges duplicate and outdated entries. The old file is copied to `backups/<chat>/` first (last 30 kept per chat), and a result that looks cut off or lost too much is rejected.
 
 Duplicates are skipped only when a fact adds nothing; corrections ("Wednesday" → "Thursday", "likes" → "doesn't like") are always saved.
 
 ### Managing memory
 * **Inspect / edit**: open `memory_summary.txt`.
 * **Reset**: empty `memory_summary.txt` and set `history.json` to `[]`.
-* **Restore**: stop the bot, copy a file from `memory_backups/` back to `memory_summary.txt`.
+* **Restore**: stop the bot, copy a file from `backups/master/` back to `memory_summary.txt`.
+
+### All backups in one folder (`backups/`)
+Everything the bot backs up goes into `backups/`, one sub-folder per chat:
+
+| Folder | What's inside |
+| :--- | :--- |
+| `backups/master/` | Your private memory before each tidy-up (`memory_summary-<date>-<reason>.txt`), and copies of unreadable files (`history.json.corrupt-<time>`) |
+| `backups/public/` | The shared memory of groups and friend chats |
+| `backups/group_<chat ID>/` | One group's memory |
+| `backups/private_<user ID>/` | One person's memory (friend chat) |
+| `backups/picture_db/` | Copies of an unreadable picture catalog |
+
+Old-style backups (`memory_backups/` folders next to each memory file, `*.corrupt-*` copies, as AI2QQ makes them) are moved into `backups/` automatically at startup.
 
 ---
 
@@ -218,7 +231,7 @@ Example client entry: `{"command": "/path/to/AI2TG/venv/bin/python", "args": ["/
 | `memory_max_chars` | `8000` | Private memory size before tidying (backup first) |
 | `single_message_limit_hint` | | Soft reply-length guide appended to the prompt |
 | `enable_multi_bubble_reply` / `multi_bubble_delay_sec` / `private_max_bubbles` | `true` / `1.2` / `4` | Multi-bubble replies |
-| `enable_autonomous_refusal` | `true` | The model may answer `[NO_REPLY]` and stay silent |
+| `enable_autonomous_refusal` | `true` | Kept from AI2QQ; not read by the code (the model may always answer `[NO_REPLY]`) |
 | `time_awareness` / `timezone` / `time_gap_note_hours` | `true` / `""` / `3` | See [§8](#8-what-the-bot-understands-in-a-message) |
 | `usage_stats` | `true` | Token usage log, see [§10](#10-logs-restarts--clean-exit) |
 | `log_level` | `INFO` | Log detail |
@@ -431,9 +444,50 @@ Besides the Master, the companion can chat privately with other Telegram users. 
 This is the Telegram edition of AI2QQ. The design, file layout and behaviour are the same; what changed:
 
 - **Transport**: the Telegram Bot API with long polling replaces NapCat/OneBot. No Docker, no QR login, no local ports.
-- **Identity**: `master_qq` → `master_id` (Telegram user ID); `bot_qq` is gone (the bot's ID comes from the token); `hide_master_qq` → `hide_master_id`; labels say `ID:` instead of `QQ:`.
+- **Identity**: labels say `ID:` (Telegram user ID) instead of `QQ:`.
 - **Removed (no Telegram equivalent)**: Qzone, pokes, profile likes, QQ faces (replaced by emoji faces), single-account self-chat mode, merged-forward trees (Telegram forwards arrive as separate messages and are batched).
-- **New for Telegram**: `telegram_*` settings, proxy support, "typing…" indicator, real sticker/GIF resending by file ID, forum topics, `friend_whitelist` (anyone can find a bot), privacy-mode warning, update offset file.
+- **New for Telegram**: proxy support, "typing…" indicator, real sticker/GIF resending by file ID, forum topics, `friend_whitelist` (anyone can find a bot), privacy-mode warning, update offset file.
+- **Backups**: all in `backups/<chat>/` instead of `memory_backups/` folders next to each memory file (old ones are moved there automatically).
 - **English only.**
 
-**Moving your private memory over**: the Master's files have the same format. Stop both bots and copy `history.json`, `memory_summary.txt`, `chat_history.jsonl` (and `memory_backups/`, `picture_db/` if you like) from the AI2QQ folder into this one. Group and friend sessions are tied to QQ numbers, so they don't carry over.
+### 17.1 Settings: kept, renamed, removed, new
+**Kept, same name and meaning (73)**: model and API (`api_key`, `base_url`, `model`, `max_tokens`, `thinking_level`, `thinking_level_background`, `thinking_api`, `api_type`), conversation (`debounce_delay_sec`, `max_batch_wait_sec`, `compact_threshold`, `compact_keep_recent`, `memory_max_chars`, `single_message_limit_hint`, `single_message_limit_hint_en`, `enable_multi_bubble_reply`, `multi_bubble_delay_sec`, `private_max_bubbles`, `enable_autonomous_refusal`, `time_awareness`, `timezone`, `time_gap_note_hours`, `usage_stats`, `log_level`), media (`enable_vision`, `enable_audio_input`, `enable_file_parser`, `max_file_text_chars`, `enable_voice_recognition`, `asr_api_url`, `asr_api_key`, `asr_model`, `enable_voice_reply`, `voice_character`, `enable_picture_database`, `enable_web_search`, `max_search_results`), memory (`memory_mode`, `public_memory_max_chars`, `group_memory_max_chars`), every `group_*` setting except `group_poll_interval_sec` (`enable_group_chat`, `group_whitelist`, `bot_name`, `group_trigger_*`, `group_member_*`, `group_reply_with_at`, `group_reply_with_quote`, `group_context_*`, `group_followup_window_sec`, `group_media_retention_days`, `group_master_notify_max_per_hour`, `group_glance_*`, `group_max_tokens`, `group_max_bubbles`, `group_log_ambient`, `group_max_file_bytes`, `group_debounce_delay_sec`, `group_max_batch_wait_sec`), and friend chat (`enable_friend_chat`, `friend_blacklist`, `private_member_msg_limit`, `private_member_limit_window_sec`, `private_member_limit_notice`).
+
+Two of them changed meaning slightly: `group_whitelist` now holds Telegram chat IDs (negative numbers) and `friend_blacklist` Telegram user IDs. The defaults of `group_reply_with_quote` (now `true`) and `group_reply_with_at` (now `false`) were swapped, because a threaded reply is the normal way to answer someone on Telegram. `api_type` and `enable_autonomous_refusal` are not read by the code, in AI2QQ or here.
+
+**Renamed**
+| AI2QQ | AI2TG | Note |
+| :--- | :--- | :--- |
+| `master_qq` | `master_id` | A Telegram user ID, not a QQ number: you must set it again |
+| `hide_master_qq` | `hide_master_id` | If only the old name is in config.json, its value is used |
+
+**Removed**
+| AI2QQ setting | Why |
+| :--- | :--- |
+| `bot_qq` | The bot's ID comes from its token |
+| `onebot_http_api`, `onebot_access_token` | No NapCat/OneBot; replaced by `telegram_bot_token`, `telegram_api_base`, `telegram_proxy` |
+| `poll_interval_sec`, `group_poll_interval_sec`, `friend_poll_interval_sec`, `friend_poll_batch` | Telegram pushes new messages through one long-polling stream; replaced by `telegram_poll_timeout_sec` |
+| `language` | English only |
+| `enable_google_asr` | Only switched Google speech-to-text on in Chinese mode; now it is always the last fallback (language: `asr_language`) |
+| `prefer_native_file_parser`, `prefer_native_voice_recognition` | Were never read by AI2QQ's code |
+| `enable_qzone` and all 14 `qzone_*` settings | Qzone doesn't exist on Telegram |
+
+**New**: `telegram_bot_token`, `telegram_api_base`, `telegram_proxy`, `telegram_poll_timeout_sec`, `show_typing`, `master_id`, `hide_master_id`, `friend_whitelist`, `asr_language`.
+
+A `config.json` copied from AI2QQ works, but the log lists the leftover AI2QQ settings once at startup so you can delete them. Start from `config.example.json` if you prefer a clean file.
+
+### 17.2 Moving your memory over
+The Master's files have exactly the same format and the same place, so **nothing is lost**:
+
+1. Stop both bots.
+2. Copy these from the AI2QQ folder into this one:
+   - `history.json` (recent conversation)
+   - `memory_summary.txt` (long-term memory)
+   - `chat_history.jsonl` (the full chat log, still searchable with `[search_history: …]`)
+   - optionally `memory_backups/` (moved into `backups/master/` at the next start), `picture_db/` (your picture library) and `usage_stats/`.
+3. Set `master_id` (your Telegram user ID) and start the bot. The memory loads no matter what ID it is, because the Master's memory always lives in these root files.
+
+Don't copy:
+- `sessions/group_*` and `sessions/private_*`: they belong to QQ groups and QQ friends (QQ numbers mean nothing on Telegram). Positive-numbered `group_*` folders are ignored anyway; `private_*` folders would show up as people you chatted with.
+- `sessions/public/` only if you want the shared memory about your QQ friends (entries mention QQ numbers).
+- `persona/system_prompt.md` / `system_prompt_zh.md` from AI2QQ: they describe QQ features (QQ faces, pokes, Qzone tags). Copy only your character description into the new `persona/system_prompt.md`.
