@@ -735,17 +735,13 @@ def get_tools_for_session(session: "ChatSession", ctx: dict = None) -> list:
 
     return tools
 
-def persona_file(*names) -> str:
-    """First persona file that exists. *.local.md files are your own versions (git-ignored, never
-    uploaded); the *_en.md names from older setups still work."""
-    for n in names:
-        p = os.path.join(PERSONA_DIR, n)
-        if os.path.exists(p):
-            return p
-    return ""
+def persona_file(name: str) -> str:
+    """Path of a file in persona/ ("" if it doesn't exist)."""
+    p = os.path.join(PERSONA_DIR, name)
+    return p if os.path.exists(p) else ""
 
 def load_system_prompt() -> str:
-    fpath = persona_file("system_prompt.local.md", "system_prompt.md", "system_prompt_en.md")
+    fpath = persona_file("system_prompt.md")
     if fpath:
         try:
             with open(fpath, "r", encoding="utf-8-sig") as f:
@@ -3721,7 +3717,7 @@ You are now chatting in the Telegram group "{group}". Your persona and personali
 6. Pictures and voice messages you looked at are kept for a while; the chat log shows their media IDs, and [review_media: media ID] lets you look or listen again."""
 
 
-# Default chat style for groups; override it in persona/system_prompt_group_zh.md / _en.md
+# Default chat style for groups; override it in persona/system_prompt_group.md
 # Default chat style for groups; override it in persona/system_prompt_group.md
 DEFAULT_GROUP_STYLE = """【Group Chat Style】
 - In the group you only receive messages that call your name, @mention you or reply to you. 【Background Messages】 are just recent chat for context; you don't need to answer them one by one.
@@ -3732,7 +3728,7 @@ DEFAULT_GROUP_STYLE = """【Group Chat Style】
 
 
 def load_group_style_prompt() -> str:
-    fpath = persona_file("system_prompt_group.local.md", "system_prompt_group.md", "system_prompt_group_en.md")
+    fpath = persona_file("system_prompt_group.md")
     if fpath:
         try:
             with open(fpath, "r", encoding="utf-8-sig") as f:
@@ -5839,7 +5835,7 @@ def main():
     logging.info(f"[*] File Parser     : {'Enabled' if config.get('enable_file_parser', True) else 'Disabled'}")
     logging.info(f"[*] Voice Recog     : {'Enabled' if config.get('enable_voice_recognition', True) else 'Disabled'}")
     logging.info(f"[*] Multi-Bubble Msg: {'Enabled ([SEP])' if config.get('enable_multi_bubble_reply', True) else 'Disabled'}")
-    logging.info(f"[*] Persona Source  : {persona_file('system_prompt.local.md', 'system_prompt.md', 'system_prompt_en.md') or 'built-in default'}")
+    logging.info(f"[*] Persona Source  : {persona_file('system_prompt.md') or 'built-in default'}")
     if config.get("enable_group_chat", False):
         gids = get_group_whitelist()
         triggers = []
