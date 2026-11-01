@@ -145,7 +145,7 @@ See [USAGE §5–§9](USAGE.md).
 
 - `thinking_level` / `thinking_level_background`: `none`–`high`, sent the right way for OpenRouter, DeepSeek or OpenAI-style APIs; refused levels fall back automatically.
 - Tool-call and web-search limits per reply to keep costs predictable; `usage_report.py` shows where the tokens go.
-- Hot-reloaded persona files in `persona/`.
+- Hot-reloaded persona files in `persona/`; your own character goes in a git-ignored `persona/system_prompt.local.md`.
 </details>
 
 <details>

@@ -10,6 +10,8 @@ env/
 
 # Secrets and local configurations
 config.json
+# Your own persona versions (persona/system_prompt.local.md, ...) stay on your machine
+persona/*.local.md
 config.json.bak*
 *.log
 agent.log

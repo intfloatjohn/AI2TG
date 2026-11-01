@@ -55,6 +55,8 @@ All files that shape the companion's character live in **`persona/`**. They are 
 | `persona/persona.md` | A character sheet template (name, looks, personality). Reference only: copy what you want into `system_prompt.md`. |
 | `persona/tools.md` | Reference of every action tag and tool. |
 
+**Your own persona, kept private**: put your version in `persona/system_prompt.local.md` (and, if you like, `persona/system_prompt_group.local.md`). When a `.local.md` file exists it is loaded instead of the shared file, and git ignores it, so your character never ends up on GitHub and `git pull` never conflicts with it. The startup log shows which file is used (`Persona Source`).
+
 Files named `system_prompt_en.md` / `system_prompt_group_en.md` (from older setups) are used when the plain names are missing.
 
 `single_message_limit_hint` in `config.json` is appended to the prompt as a soft guide for reply length.
@@ -490,4 +492,4 @@ The Master's files have exactly the same format and the same place, so **nothing
 Don't copy:
 - `sessions/group_*` and `sessions/private_*`: they belong to QQ groups and QQ friends (QQ numbers mean nothing on Telegram). Positive-numbered `group_*` folders are ignored anyway; `private_*` folders would show up as people you chatted with.
 - `sessions/public/` only if you want the shared memory about your QQ friends (entries mention QQ numbers).
-- `persona/system_prompt.md` / `system_prompt_zh.md` from AI2QQ: they describe QQ features (QQ faces, pokes, Qzone tags). Copy only your character description into the new `persona/system_prompt.md`.
+- `persona/system_prompt.md` / `system_prompt_zh.md` from AI2QQ: they describe QQ features (QQ faces, pokes, Qzone tags). Copy only your character description into `persona/system_prompt.local.md` (see [§2](#2-persona-prompt-customization--hot-reload-persona)).
