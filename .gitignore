@@ -28,6 +28,7 @@ downloads/
 sessions/
 *.corrupt-*
 *.tmp-*
+picture_db/catalog.json
 picture_db/images/*
 !picture_db/images/.gitkeep
 
