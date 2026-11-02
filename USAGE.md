@@ -413,11 +413,17 @@ One library, but every picture has a visibility scope:
 Besides the Master, the companion can chat privately with other Telegram users. Off by default: `"enable_friend_chat": true`. These chats are treated as public and untrusted, like groups.
 
 ### 16.1 Who
-**Anyone can find a Telegram bot by its username**, so think about who should be able to use it (each chat costs model calls):
-- `friend_whitelist`: when not empty, only these user IDs are answered. Recommended.
-- `friend_blacklist`: these user IDs are never answered.
-- Empty whitelist = anyone who messages the bot, except the blacklist.
+**Anyone can find a Telegram bot by its username**, so only the people you choose are answered:
+- `friend_whitelist`: the user IDs that are answered. An empty list means nobody.
+- `"friend_whitelist": ["*"]`: everyone who messages the bot (a public bot). Keep `private_member_msg_limit` set: every message costs a model call.
+- `friend_blacklist`: user IDs never answered. It always wins, also over `"*"`.
 - Ignored private messages are logged once per hour per person, with their user ID, so you can whitelist friends easily.
+- Changes are picked up within ~10 seconds, no restart needed.
+
+```jsonc
+"friend_whitelist": [234567890, 345678901]     // only these two
+"friend_whitelist": ["*"], "friend_blacklist": [456789012]     // everyone except one
+```
 
 ### 16.2 Rules
 - **Identity by user ID only**: someone saying they are the Master changes nothing.
@@ -431,8 +437,8 @@ Besides the Master, the companion can chat privately with other Telegram users. 
 | Setting | Default | Meaning |
 | :--- | :--- | :--- |
 | `enable_friend_chat` | `false` | Main switch |
-| `friend_whitelist` | `[]` | Only these user IDs (empty = everyone) |
-| `friend_blacklist` | `[]` | User IDs never answered |
+| `friend_whitelist` | `[]` | User IDs answered in private; `[]` = nobody, `["*"]` = everyone |
+| `friend_blacklist` | `[]` | User IDs never answered (wins over the whitelist) |
 | `private_member_msg_limit` | `50` if unset (with a warning) | Replies per person per window; `0` = unlimited |
 | `private_member_limit_window_sec` | `86400` | Counting window; `0` = never resets |
 | `private_member_limit_notice` | `""` | One-time notice when someone hits the limit |
@@ -446,7 +452,7 @@ This is the Telegram edition of AI2QQ. The design, file layout and behaviour are
 - **Transport**: the Telegram Bot API with long polling replaces NapCat/OneBot. No Docker, no QR login, no local ports.
 - **Identity**: labels say `ID:` (Telegram user ID) instead of `QQ:`.
 - **Removed (no Telegram equivalent)**: Qzone, pokes, profile likes, QQ faces (replaced by emoji faces), single-account self-chat mode, merged-forward trees (Telegram forwards arrive as separate messages and are batched).
-- **New for Telegram**: proxy support, "typing…" indicator, real sticker/GIF resending by file ID, forum topics, `friend_whitelist` (anyone can find a bot), privacy-mode warning, update offset file.
+- **New for Telegram**: proxy support, "typing…" indicator, real sticker/GIF resending by file ID, forum topics, `friend_whitelist` (anyone can find a bot, so empty = nobody; `["*"]` = everyone), privacy-mode warning, update offset file.
 - **Backups**: all in `backups/<chat>/` instead of `memory_backups/` folders next to each memory file (old ones are moved there automatically).
 - **English only.**
 

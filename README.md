@@ -23,7 +23,7 @@ Most chatbots answer every message and forget everything. AI2TG is built to feel
 | 🧠 **Memory that never quietly disappears** | New facts are only *added*, with dates. Tidying happens only when memory gets large, with automatic backups in `backups/`. Corrections (Wed → Thu, likes → doesn't like) are kept, not dropped. |
 | 🗂️ **Your private memory stays private** | What you tell it in private chat is never loaded into groups or other people's chats. Those share one public memory (or one each, if you prefer), so it still recognises people across a group and their private chat. |
 | 👥 **Group chat that doesn't spam** | Speaks only when its name is mentioned, it's @mentioned, or someone replies to it. Per-member message limits. It can skim the group now and then and **tell you privately** if something interesting happens. |
-| 💬 **Chats with your friends, safely** | Other people can talk to it too (whitelist / blacklist), each with a message limit, under the same rules as a group. |
+| 💬 **Chats with your friends, safely** | People you whitelist can talk to it too (or everyone, for a public bot; with a blacklist), each with a message limit, under the same rules as a group. |
 | 👀 **Sees what you see** | Photos, stickers (even animated ones), GIFs, voice messages, documents, forwards and **replies**. If the model can't see or hear, you get a clear warning instead of a made-up answer. |
 | ⌨️ **Types like a person** | Plain text, several short bubbles in a row with "typing…", real voice messages (Edge-TTS), emoji faces, stickers it collects and sends back as real Telegram stickers, and it may choose not to answer at all. |
 | 🪶 **Light and simple** | One Python process, ~30 MB RAM, outgoing HTTPS only (long polling): no webhook, no open ports, no Docker. Optional proxy if Telegram is blocked where it runs. |
@@ -126,7 +126,7 @@ See [USAGE §15](USAGE.md#15-group-chat).
 <details>
 <summary><b>Friend chat</b></summary>
 
-Other Telegram users (whitelist recommended, since anyone can find a bot); identity by user ID; per-person limit; limited tools; you can ask "what did you talk about with Fred?". See [USAGE §16](USAGE.md#16-friend-chat).
+Only the Telegram users on your whitelist, or everyone for a public bot, minus a blacklist; identity by user ID; per-person limit; limited tools; you can ask "what did you talk about with Fred?". See [USAGE §16](USAGE.md#16-friend-chat).
 </details>
 
 <details>

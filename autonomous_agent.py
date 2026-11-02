@@ -12,7 +12,7 @@ Features:
 - Configurable Message Length Guidelines (Soft, model-decided limits in config.json)
 - Group Chat: name/@mention/reply triggers, Telegram-user-ID identity checks,
   per-member message limits, and physically separated memory & assets per chat
-- Friend Chat: other Telegram users (optional whitelist/blacklist), treated as untrusted
+- Friend Chat: other Telegram users (whitelist, or everyone for a public bot; blacklist), treated as untrusted
 """
 
 import os
@@ -146,8 +146,8 @@ config = {
 
     # --- Private chats with other Telegram users (friend chat) ---
     "enable_friend_chat": False,
-    "friend_whitelist": [],                    # Empty = anyone who messages the bot (minus the blacklist)
-    "friend_blacklist": [],                    # User IDs the bot never answers in private
+    "friend_whitelist": [],                    # User IDs allowed in private chat: [] = nobody, ["*"] = everyone (public bot)
+    "friend_blacklist": [],                    # User IDs never answered in private (wins over the whitelist)
     # "private_member_msg_limit": per friend; 0 = unlimited. Not set here: when config.json leaves it
     # out, a WARNING is logged and 50 is used (same rule as group_member_msg_limit).
     "private_member_limit_window_sec": 86400,
@@ -5458,27 +5458,34 @@ def friend_label(uid, name: str = "") -> str:
 def friend_chat_enabled() -> bool:
     return bool(config.get("enable_friend_chat", False))
 
-def _id_set(key: str) -> set:
+def _id_list(key: str) -> list:
     raw = config.get(key) or []
     if isinstance(raw, (int, str)):
         raw = re.split(r'[,\s]+', str(raw))
-    return {to_int(x, 0) for x in raw if to_int(x, 0) > 0}
+    return list(raw) if isinstance(raw, (list, tuple, set)) else []
 
-def friend_blacklist() -> set:
-    return _id_set("friend_blacklist")
+def _id_set(key: str) -> set:
+    return {to_int(x, 0) for x in _id_list(key) if to_int(x, 0) > 0}
 
 def friend_whitelist() -> set:
     return _id_set("friend_whitelist")
 
+def friend_whitelist_everyone() -> bool:
+    """friend_whitelist: ["*"] opens friend chat to everyone (a public bot)."""
+    return any(str(x).strip() == "*" for x in _id_list("friend_whitelist"))
+
+def friend_blacklist() -> set:
+    return _id_set("friend_blacklist")
+
 def friend_allowed(uid: int) -> bool:
-    """Anyone can find a Telegram bot, so friend chat can be limited to friend_whitelist (empty = everyone)."""
+    """Anyone can find a Telegram bot, so only people on friend_whitelist are answered: [] = nobody,
+    ["*"] = everyone. friend_blacklist always wins."""
     uid = to_int(uid, 0)
     if not (friend_chat_enabled() and uid > 0 and not is_master(uid) and uid != get_bot_id()):
         return False
     if uid in friend_blacklist():
         return False
-    wl = friend_whitelist()
-    return not wl or uid in wl
+    return friend_whitelist_everyone() or uid in friend_whitelist()
 
 def build_friend_system_prompt(session: ChatSession) -> str:
     rules = FRIEND_CORE_RULES.replace("{label}", friend_label(session.target_id, session.friend_name))
@@ -5672,6 +5679,10 @@ def dispatch_update(update: dict, startup_ts: float):
                 hint = f" If this is you, set \"master_id\": {uid} in config.json."
             elif not friend_chat_enabled():
                 hint = " Friend chat is off (enable_friend_chat)."
+            elif uid in friend_blacklist():
+                hint = " They are on friend_blacklist."
+            else:
+                hint = f" To allow them, add {uid} to friend_whitelist."
             _log_ignored(("private", uid), f"Private message from user ID {uid} ({tg_user_display(frm)}) ignored.{hint}")
             return
         mid = msg.get("message_id")
@@ -5866,8 +5877,17 @@ def main():
     if friend_chat_enabled():
         f_limit, f_window = _quota_params(type("FriendKind", (), {"is_friend": True})())
         f_desc = "unlimited" if f_limit <= 0 else (f"{f_limit} per person (never resets)" if f_window <= 0 else f"{f_limit} per person per {f_window / 3600:g}h")
-        who = f"{len(friend_whitelist())} whitelisted user(s)" if friend_whitelist() else "anyone who messages the bot"
-        logging.info(f"[*] Friend Chat     : Enabled for {who}, minus {len(friend_blacklist())} blacklisted; limit {f_desc}")
+        blocked = f", minus {len(friend_blacklist())} blacklisted" if friend_blacklist() else ""
+        if friend_whitelist_everyone():
+            logging.info(f"[*] Friend Chat     : Enabled for EVERYONE who messages the bot (public){blocked}; limit {f_desc}")
+            if f_limit <= 0:
+                logging.warning("[!] Friend chat is open to everyone with no message limit: every stranger's message costs a "
+                                "model call. Consider setting private_member_msg_limit.")
+        elif friend_whitelist():
+            logging.info(f"[*] Friend Chat     : Enabled for {len(friend_whitelist())} whitelisted user(s){blocked}; limit {f_desc}")
+        else:
+            logging.warning("[!] Friend Chat     : enable_friend_chat is true but friend_whitelist is empty: nobody is answered in private "
+                            "(use [\"*\"] for everyone).")
     logging.info("=" * 65)
 
     # Long polling does not work while a webhook is set for this bot
