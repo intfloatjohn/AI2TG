@@ -44,8 +44,9 @@ cd AI2TG
 ./setup.sh     # first time: Python env, ffmpeg, TTS voice, config.json (asks for the token and API key)
 ./start.sh     # every day
 ```
+Or download `AI2TG-<version>-linux.tar.gz` from [Releases](https://github.com/intfloatjohn/AI2TG/releases/latest) and run `tar -xzf AI2TG-*-linux.tar.gz && cd AI2TG` instead of `git clone`.
 
-**Windows:** double-click **`setup_windows.bat`** once, then **`start.bat`** every day.
+**Windows:** download `AI2TG-<version>-windows.zip` from [Releases](https://github.com/intfloatjohn/AI2TG/releases/latest) and unzip it. Double-click **`setup_windows.bat`** once, then **`start.bat`** every day.
 
 3. Open your bot in Telegram and press **Start**. The log prints your user ID; put it in `config.json` as `master_id`:
 ```json
