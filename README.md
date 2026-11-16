@@ -3,7 +3,7 @@
 <div align="center">
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Telegram Bot API](https://img.shields.io/badge/Telegram-Bot%20API-26A5E4.svg)](https://core.telegram.org/bots/api)
 [![Multimodal](https://img.shields.io/badge/Multimodal-Vision%20%2B%20Voice%20%2B%20Stickers-brightgreen.svg)]()
 
@@ -44,6 +44,8 @@ cd AI2TG
 ./setup.sh     # first time: Python env, ffmpeg, TTS voice, config.json (asks for the token and API key)
 ./start.sh     # every day
 ```
+On macOS, install Python 3.10+ and ffmpeg first with `brew install python ffmpeg`: the Python that ships with macOS is 3.9, which is too old.
+
 Or download `AI2TG-<version>-linux.tar.gz` from [Releases](https://github.com/intfloatjohn/AI2TG/releases/latest) and run `tar -xzf AI2TG-*-linux.tar.gz && cd AI2TG` instead of `git clone`.
 
 **Windows:** download `AI2TG-<version>-windows.zip` from [Releases](https://github.com/intfloatjohn/AI2TG/releases/latest) and unzip it. Double-click **`setup_windows.bat`** once, then **`start.bat`** every day.
